@@ -45,7 +45,7 @@ public class Importer extends ImporterRunnerBase {
 			return 1;
 		}
 		
-		logger.info("Loading Data");
+		logger.info("Import Completed");
 		
 		
 		return status;

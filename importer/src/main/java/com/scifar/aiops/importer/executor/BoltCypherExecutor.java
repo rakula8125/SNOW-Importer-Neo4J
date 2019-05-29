@@ -34,7 +34,7 @@ public class BoltCypherExecutor implements CypherExecutor {
 	} 
 	
 	@Override
-	public StatementResult query(String statement, Map<String, Object> params) {
+	public StatementResult executeCypherQuery(String statement, Map<String, Object> params) {
 		try (Session session = driver.session()) {
 			StatementResult result = session.run(statement, params);
 			return result;
@@ -42,7 +42,7 @@ public class BoltCypherExecutor implements CypherExecutor {
 	}
 
 	@Override
-	public StatementResult query(String statement) {
+	public StatementResult executeCypherQuery(String statement) {
 		try (Session session = driver.session()) {
 			StatementResult result = session.run(statement);
 			return result;

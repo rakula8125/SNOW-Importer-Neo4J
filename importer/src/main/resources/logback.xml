@@ -1,29 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 	<timestamp key="logTimestamp" datePattern="MM-dd-yyyy'_'HHmmssSSS" />
-	
-	<appender name="FILE" class="ch.qos.logback.core.FileAppender">
-		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-			<level>debug</level>
-		</filter>
+
+	<appender name="file" class="ch.qos.logback.core.FileAppender">
 		<File>logs/${logTimestamp}/importer.log</File>
 		<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
 			<pattern>%d{HH:mm:ss.SSS} - %msg%n</pattern>
 		</encoder>
 	</appender>
 	
-	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+	<appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
 		<Target>System.out</Target>
-		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-			<level>info</level>
-		</filter>
 		<encoder>
 			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n </pattern>
 		</encoder>
 	</appender>
 	
-	<root level="DEBUG">
-        <appender-ref ref="STDOUT"/>
-        <appender-ref ref="FILE" />
-    </root>
+	<logger name="com.scifar.aiops" level = "DEBUG">
+		<appender-ref ref="file" />
+	</logger>
+	
+	<root level="INFO">
+		<appender-ref ref="stdout" />
+	</root>
+
 </configuration>

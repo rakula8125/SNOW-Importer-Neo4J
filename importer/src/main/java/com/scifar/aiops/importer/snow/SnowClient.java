@@ -1,9 +1,9 @@
 package com.scifar.aiops.importer.snow;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +31,6 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scifar.aiops.importer.exception.ImporterUpdateException;
 import com.scifar.aiops.importer.exception.SourceInitialisationException;
-import com.scifar.aiops.importer.snow.model.incident.Incident;
 
 @Service("snowClient")
 public class SnowClient extends ImporterSourceClient {
@@ -108,7 +107,7 @@ public class SnowClient extends ImporterSourceClient {
 		return responseBody;
 	}
 
-	protected String httpGetResponse(String url) throws ImporterUpdateException {
+	protected InputStream httpGetResponse(String url) throws ImporterUpdateException {
 		String responseBody = null;
 
 		HttpGet httpGet = new HttpGet(url);
@@ -136,18 +135,16 @@ public class SnowClient extends ImporterSourceClient {
 				logger.debug("HTTP request complete: "+ statusCode +" " + url);
 			}
 
-			if(statusCode != HttpStatus.SC_OK) {
-				throw new ImporterUpdateException("Status code "+ statusCode +"recieved from URL: " + url);
+			if(statusCode != HttpStatus.SC_OK) { 
+				throw new ImporterUpdateException("Status code "+ statusCode +"recieved from URL: " + url); 
 			}
 
-			responseBody = EntityUtils.toString(response.getEntity());
-			if(logger.isDebugEnabled()) {
-				logger.debug("Response Body: {}",responseBody);
-			}
+			//responseBody = EntityUtils.toString(response.getEntity());
+			return response.getEntity().getContent();
 		} catch (IOException e) {
 			throw new ImporterUpdateException("IOException: " + e.getMessage());
 		} 
-		return responseBody;
+		//return responseBody;
 	}
 
 
@@ -158,7 +155,7 @@ public class SnowClient extends ImporterSourceClient {
 		//Merging Nodes
 		updateIncidents();
 		updateChangeRequests();
-		
+
 		Date endDate = new Date();
 		this.initTimeMs = endDate.getTime() - startDate.getTime();
 		logger.info(String.format("Data Updated in %.3f seconds", 0.001 * (double)this.initTimeMs));
@@ -170,24 +167,25 @@ public class SnowClient extends ImporterSourceClient {
 		if(logger.isDebugEnabled()) {
 			logger.debug(" ############## Loading Incidents############## ");
 		}
-		String incidents = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSIncidentURL());
+		//String incidentJsonPayload = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSIncidentURL());
+		InputStream incidentJsonPayload = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSIncidentURL());
 		ObjectMapper mapper = new ObjectMapper();
 
 		if(logger.isDebugEnabled()) {
 			logger.debug(" ############## Loading Incidents complete ############## ");
 		}
-		Map mappedIncidents = null;
+		Map<String, Object> json = null;
 		try {
-			mapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
 			if(logger.isDebugEnabled()) {
 				logger.debug(" ############## Incidents - Mapping JSON to Java Object ############## ");
 			}	
-			//Incident result = mapper.readValue(incidents,Incident.class);
-			mappedIncidents = mapper.readValue(incidents,Map.class);
+			//TypeReference<HashMap<String,Object>> typeRef = new TypeReference<HashMap<String,Object>>() {};
+			json = mapper.readValue(incidentJsonPayload,Map.class);
 
+			logger.info("Mapped Incidents: {}",json);
 			if(logger.isDebugEnabled()) { 
-				if(mappedIncidents != null) {
-					logger.debug(" ############## Completed mapping values for Incidents size {}",mappedIncidents.size()); 
+				if(json != null) {
+					logger.debug(" ############## Completed mapping values for Incidents size {}",json.size()); 
 				} 
 			}
 
@@ -204,8 +202,7 @@ public class SnowClient extends ImporterSourceClient {
 		}
 		String importIncidentsQuery = configUtil.getImportIncidents();
 		if(importIncidentsQuery != null) {
-			//StatementResult result = cypher.query(query,Collections.singletonMap("result", mappedIncidents));
-			StatementResult result = cypher.query(importIncidentsQuery,mappedIncidents);
+			StatementResult result = cypher.executeCypherQuery(importIncidentsQuery,Collections.singletonMap("json", json));
 			if(result != null) {
 				List<Record> records = result.list();
 				logger.info("Updating -------------- {} records",records.size());
@@ -227,24 +224,24 @@ public class SnowClient extends ImporterSourceClient {
 		if(logger.isDebugEnabled()) {
 			logger.debug(" ############## Loading change_requests ############## ");
 		}
-		String changeRequests = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSChangeRequestURL());
+		//String changeRequests = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSChangeRequestURL());
+		InputStream changeRequests = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSChangeRequestURL());
 		ObjectMapper mapper = new ObjectMapper();
 
 		if(logger.isDebugEnabled()) {
 			logger.debug(" ############## Loading change_requests complete ############## ");
 		}
-		Map mappedChangeRequests = null;
+		Map json = null;
 		try {
 			mapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
 			if(logger.isDebugEnabled()) {
 				logger.debug(" ############## Incidents - Mapping JSON to Java Object ############## ");
 			}	
-			//Incident result = mapper.readValue(incidents,Incident.class);
-			mappedChangeRequests = mapper.readValue(changeRequests,Map.class);
+			json = mapper.readValue(changeRequests,Map.class);
 
 			if(logger.isDebugEnabled()) { 
-				if(mappedChangeRequests != null) {
-					logger.debug("############## Completed mapping values for Change Requests size {}",mappedChangeRequests.size()); 
+				if(json != null) {
+					logger.debug("############## Completed mapping values for Change Requests size {}",json.size()); 
 				} 
 			}
 
@@ -261,7 +258,7 @@ public class SnowClient extends ImporterSourceClient {
 		}
 		String importChangeRequestsQuery = configUtil.getImportChangeRequests();
 		if(importChangeRequestsQuery != null) {
-			StatementResult result = cypher.query(importChangeRequestsQuery,mappedChangeRequests);
+			StatementResult result = cypher.executeCypherQuery(importChangeRequestsQuery,Collections.singletonMap("json", json));
 			if(result != null) {
 				List<Record> records = result.list();
 				logger.info("Updating -------------- {} records",records.size());
