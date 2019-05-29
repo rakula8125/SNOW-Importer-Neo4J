@@ -43,9 +43,24 @@ public class ConfigurationUtil {
 	@Value("${snow.changeRequestURL}")
 	private String sChangeRequestURL;
 	
+	@Value("${snow.ci.serverURL}")
+	private String sCiServerURL;
+	
+	@Value("${snow.ci.serviceURL}")
+	private String sCiServiceURL;
+	
 	@Value("${import.incidents}")
 	private String importIncidents;
 	
 	@Value("${import.changeRequests}")
 	private String importChangeRequests;
+
+	
+	@Value("${import.ci.servers}")
+	private String importServers;
+	
+	@Value("${import.ci.service}")
+	private String importCIService;
+
+	
 }

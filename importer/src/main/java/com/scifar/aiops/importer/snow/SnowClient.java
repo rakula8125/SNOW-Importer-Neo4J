@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scifar.aiops.importer.exception.ImporterUpdateException;
@@ -65,9 +64,7 @@ public class SnowClient extends ImporterSourceClient {
 		}
 	}
 
-	protected String httpPostResponse(String url) throws ImporterUpdateException {
-		String responseBody = null;
-
+	protected InputStream httpPostResponse(String url) throws ImporterUpdateException {
 		HttpPost httpPost = new HttpPost(url);
 		httpPost.setHeader("Accept", "application/json");
 		httpPost.setHeader("Content-Type", "application/json");
@@ -96,20 +93,13 @@ public class SnowClient extends ImporterSourceClient {
 				throw new ImporterUpdateException("Status code "+ statusCode +"recieved from URL: " + url);
 			}
 
-			responseBody = EntityUtils.toString(response.getEntity());
-			if(logger.isDebugEnabled()) {
-				logger.debug("Response Body: {}",responseBody);
-			}
-
+			return response.getEntity().getContent();
 		} catch (IOException e) {
 			throw new ImporterUpdateException("IOException: " + e.getMessage());
 		} 
-		return responseBody;
 	}
 
 	protected InputStream httpGetResponse(String url) throws ImporterUpdateException {
-		String responseBody = null;
-
 		HttpGet httpGet = new HttpGet(url);
 		httpGet.setHeader("Accept", "application/json");
 		logger.info("Executing request {}", httpGet.getRequestLine());
@@ -139,12 +129,10 @@ public class SnowClient extends ImporterSourceClient {
 				throw new ImporterUpdateException("Status code "+ statusCode +"recieved from URL: " + url); 
 			}
 
-			//responseBody = EntityUtils.toString(response.getEntity());
 			return response.getEntity().getContent();
 		} catch (IOException e) {
 			throw new ImporterUpdateException("IOException: " + e.getMessage());
 		} 
-		//return responseBody;
 	}
 
 
@@ -155,6 +143,8 @@ public class SnowClient extends ImporterSourceClient {
 		//Merging Nodes
 		updateIncidents();
 		updateChangeRequests();
+		updateServers();
+		updateConfigurationItems();
 
 		Date endDate = new Date();
 		this.initTimeMs = endDate.getTime() - startDate.getTime();
@@ -167,7 +157,6 @@ public class SnowClient extends ImporterSourceClient {
 		if(logger.isDebugEnabled()) {
 			logger.debug(" ############## Loading Incidents############## ");
 		}
-		//String incidentJsonPayload = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSIncidentURL());
 		InputStream incidentJsonPayload = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSIncidentURL());
 		ObjectMapper mapper = new ObjectMapper();
 
@@ -179,7 +168,6 @@ public class SnowClient extends ImporterSourceClient {
 			if(logger.isDebugEnabled()) {
 				logger.debug(" ############## Incidents - Mapping JSON to Java Object ############## ");
 			}	
-			//TypeReference<HashMap<String,Object>> typeRef = new TypeReference<HashMap<String,Object>>() {};
 			json = mapper.readValue(incidentJsonPayload,Map.class);
 
 			logger.info("Mapped Incidents: {}",json);
@@ -224,7 +212,6 @@ public class SnowClient extends ImporterSourceClient {
 		if(logger.isDebugEnabled()) {
 			logger.debug(" ############## Loading change_requests ############## ");
 		}
-		//String changeRequests = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSChangeRequestURL());
 		InputStream changeRequests = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSChangeRequestURL());
 		ObjectMapper mapper = new ObjectMapper();
 
@@ -233,7 +220,6 @@ public class SnowClient extends ImporterSourceClient {
 		}
 		Map json = null;
 		try {
-			mapper.enable(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
 			if(logger.isDebugEnabled()) {
 				logger.debug(" ############## Incidents - Mapping JSON to Java Object ############## ");
 			}	
@@ -275,13 +261,110 @@ public class SnowClient extends ImporterSourceClient {
 	}
 
 
-	private void mergeServers() {
-		logger.debug("Loading Servers");
+	private void updateServers() throws ImporterUpdateException {
+		logger.info("-------------- Processing Servers - START --------------");
+		if(logger.isDebugEnabled()) {
+			logger.debug(" ############## Loading cmdb_ci_server ############## ");
+		}
+		InputStream servers = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSCiServerURL());
+		ObjectMapper mapper = new ObjectMapper();
 
+		if(logger.isDebugEnabled()) {
+			logger.debug(" ############## Loading cmdb_ci_server complete ############## ");
+		}
+		Map json = null;
+		try {
+			if(logger.isDebugEnabled()) {
+				logger.debug(" ############## Servers - Mapping JSON to Java Object ############## ");
+			}	
+			json = mapper.readValue(servers,Map.class);
+
+			if(logger.isDebugEnabled()) { 
+				if(json != null) {
+					logger.debug("############## Completed mapping values for Servers size {}",json.size()); 
+				} 
+			}
+
+		} catch (JsonParseException e) {
+			throw new ImporterUpdateException("JsonParseException: "+ e.getMessage()); 
+		} catch (JsonMappingException e) {
+			throw new ImporterUpdateException("JsonMappingException: "+ e.getMessage());
+		} catch (IOException e) {
+			throw new ImporterUpdateException("IOException: "+ e.getMessage());
+		}
+
+		if(logger.isDebugEnabled()) {
+			logger.debug(" ############## Updating Servers ############## ");
+		}
+		String importServersQuery = configUtil.getImportServers();
+		if(importServersQuery != null) {
+			StatementResult result = cypher.executeCypherQuery(importServersQuery,Collections.singletonMap("json", json));
+			if(result != null) {
+				List<Record> records = result.list();
+				logger.info("Updating -------------- {} records",records.size());
+				if(logger.isDebugEnabled()) {
+					for(Record record : records) {
+						logger.debug(" ############## Add / Modified Servers ==> {}",record.get("name"));
+					}
+				}
+			} else {
+				logger.info("-------------- No records to update for Servers --------------");
+			}
+		}
+		logger.info("-------------- Processing Servers - END --------------");
 	}
 
-	private void mergeConfigurationItems() {
-		logger.debug("Loading CI");
+	private void updateConfigurationItems() throws ImporterUpdateException {
+		logger.info("-------------- Processing CI Services - START --------------");
+		if(logger.isDebugEnabled()) {
+			logger.debug(" ############## Loading cmdb_ci_service ############## ");
+		}
+		InputStream ciServices = httpGetResponse("https://"+configUtil.getSBaseURL()+"/"+configUtil.getSCiServiceURL());
+		ObjectMapper mapper = new ObjectMapper();
+
+		if(logger.isDebugEnabled()) {
+			logger.debug(" ############## Loading cmdb_ci_service complete ############## ");
+		}
+		Map json = null;
+		try {
+			if(logger.isDebugEnabled()) {
+				logger.debug(" ############## CI Services - Mapping JSON to Java Object ############## ");
+			}	
+			json = mapper.readValue(ciServices,Map.class);
+
+			if(logger.isDebugEnabled()) { 
+				if(json != null) {
+					logger.debug("############## Completed mapping values for CI Services size {}",json.size()); 
+				} 
+			}
+
+		} catch (JsonParseException e) {
+			throw new ImporterUpdateException("JsonParseException: "+ e.getMessage()); 
+		} catch (JsonMappingException e) {
+			throw new ImporterUpdateException("JsonMappingException: "+ e.getMessage());
+		} catch (IOException e) {
+			throw new ImporterUpdateException("IOException: "+ e.getMessage());
+		}
+
+		if(logger.isDebugEnabled()) {
+			logger.debug(" ############## Updating CI Services ############## ");
+		}
+		String importCiServicesQuery = configUtil.getImportCIService();
+		if(importCiServicesQuery != null) {
+			StatementResult result = cypher.executeCypherQuery(importCiServicesQuery,Collections.singletonMap("json", json));
+			if(result != null) {
+				List<Record> records = result.list();
+				logger.info("Updating -------------- {} records",records.size());
+				if(logger.isDebugEnabled()) {
+					for(Record record : records) {
+						logger.debug(" ############## Add / Modified CI Services ==> {}",record.get("name"));
+					}
+				}
+			} else {
+				logger.info("-------------- No records to update for CI Services --------------");
+			}
+		}
+		logger.info("-------------- Processing CI Services - END --------------");
 
 	}
 
