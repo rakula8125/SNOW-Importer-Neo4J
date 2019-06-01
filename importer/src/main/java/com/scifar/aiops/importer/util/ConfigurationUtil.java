@@ -49,18 +49,43 @@ public class ConfigurationUtil {
 	@Value("${snow.ci.serviceURL}")
 	private String sCiServiceURL;
 	
+	@Value("${snow.problemURL}")
+	private String sProblemURL;
+	@Value("${snow.cmdb.rel.ciURL}")	
+	private String sCmdbRelCiURL;
+	
+	
 	@Value("${import.incidents}")
 	private String importIncidents;
 	
 	@Value("${import.changeRequests}")
 	private String importChangeRequests;
-
 	
 	@Value("${import.ci.servers}")
 	private String importServers;
 	
 	@Value("${import.ci.service}")
 	private String importCIService;
-
+	
+	@Value("${import.problems}")
+	private String importProblems;
+	
+	@Value("${link.runs.on}")
+	private String importRunsOn;
+	
+	@Value("${link.has.parent.incident}")
+	private String linkHasParentIncident;
+	
+	@Value("${link.creates.problem}")
+	private String linkCreatesProblem;
+	
+	@Value("${link.impacts.service}")
+	private String linkImpactsService;
+	
+	@Value("${link.affects}")
+	private String linkAffects;
+	
+	@Value("{link.caused.by}")
+	private String linkCausedBy;
 	
 }

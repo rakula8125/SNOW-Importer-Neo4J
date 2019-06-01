@@ -16,7 +16,7 @@
 		</encoder>
 	</appender>
 	
-	<logger name="com.scifar.aiops" level = "DEBUG">
+	<logger name="com.scifar.aiops" level = "INFO">
 		<appender-ref ref="file" />
 	</logger>
 	

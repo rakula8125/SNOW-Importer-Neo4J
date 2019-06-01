@@ -16,21 +16,22 @@ import ch.qos.logback.classic.Logger;
 @Component()
 public class Importer extends ImporterRunnerBase {
 	private static Logger logger = (Logger) LoggerFactory.getLogger(Importer.class);
-	
+
 	int status = 0;
-	
+
 	@Autowired
 	@Qualifier("snowClient")
 	private SnowClient sClient;
-	
+
 	public int run() {
 		printLogFilesInfo(logger);
 		Date startDate = new Date();
 		logger.info("Import Started {}",startDate);
-		
+
 		try {
 			sClient.init();
-			sClient.importData();
+			sClient.updateNodes();
+			sClient.updateLinks();
 		} catch (SourceInitialisationException e) {
 			this.logError(String.format("SourceInitialisationException while reading the Data: %s",e.getMessage()));
 			if(logger.isDebugEnabled()) {
@@ -44,13 +45,13 @@ public class Importer extends ImporterRunnerBase {
 			}
 			return 1;
 		}
-		
+
 		logger.info("Import Completed");
-		
-		
+
+
 		return status;
 	}
-	
+
 	private void logError(String errorMessage) {
 		logger.error(errorMessage);
 	}
